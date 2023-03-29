@@ -1,0 +1,159 @@
+controller : 
+
+import { Request, Response } from 'express';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+export const createAuthor = async (req: Request, res: Response) => {
+  const { name, email, joinDate, books, socialMedias } = req.body;
+
+  try {
+    const newAuthor = await prisma.author.create({
+      data: {
+        name,
+        email,
+        joinDate,
+        books: {
+          create: books
+        },
+        socialMedias: {
+          create: socialMedias
+        }
+      },
+      include: {
+        books: true,
+        socialMedias: true
+      }
+    });
+
+    res.json(newAuthor);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error creating author' });
+  }
+};
+
+export const getAllAuthors = async (_req: Request, res: Response) => {
+  try {
+    const authors = await prisma.author.findMany({
+      include: {
+        books: true,
+        socialMedias: true
+      }
+    });
+
+    res.json(authors);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error fetching authors' });
+  }
+};
+
+export const getAuthorById = async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  try {
+    const author = await prisma.author.findUnique({
+      where: { id: Number(id) },
+      include: {
+        books: true,
+        socialMedias: true
+      }
+    });
+
+    if (!author) {
+      return res.status(404).json({ message: 'Author not found' });
+    }
+
+    res.json(author);
+  } catch (error) {
+console.log(error);
+    res.status(500).json({ message: 'Error fetching author' });
+  }
+};
+
+export const updateAuthorById = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { name, email, joinDate, books, socialMedias } = req.body;
+
+  try {
+    const updatedAuthor = await prisma.author.update({
+      where: { id: Number(id) },
+      data: {
+        name,
+        email,
+        joinDate,
+        books: {
+          upsert: books.map((book) => ({
+            where: { id: book.id || -1 },
+            create: { ...book, authorId: Number(id) },
+            update: book
+          }))
+        },
+        socialMedias: {
+          upsert: socialMedias.map((media) => ({
+            where: { id: media.id || -1 },
+            create: { ...media, author: { connect: { id: Number(id) } } },
+            update: media
+          }))
+        }
+      },
+      include: {
+        books: true,
+        socialMedias: true
+      }
+    });
+
+    res.json(updatedAuthor);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error updating author' });
+  }
+};
+
+export const deleteAuthorById = async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  try {
+    const deletedAuthor = await prisma.author.delete({
+      where: { id: Number(id) },
+      include: {
+        books: true,
+        socialMedias: true
+      }
+    });
+
+    res.json(deletedAuthor);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error updating author' });
+  }
+};
+
+RequestBody : 
+{
+  "name": "John Doe",
+  "email": "johndoe@gmail.com",
+  "joinDate": "2022-03-18",
+  "books": [
+    {
+      "name": "Book One",
+      "genre": "Fiction",
+      "datePublished": "2022-03-18"
+    },
+    {
+      "name": "Book Two",
+      "genre": "Thriller",
+      "datePublished": "2022-03-18"
+    }
+  ],
+  "mediaSocial": [
+    {
+      "instagram": "@johndoe",
+      "twitter": "@johndoe",
+      "facebook": "John Doe"
+    }
+  ]
+}
+
